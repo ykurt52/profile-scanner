@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkillScanner</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--muted:#5d6670;--line:#dde1e6;--accent:#4f6bed;--accent-ink:#fff;--warn-bg:#fff6e0;--warn-ink:#7a5a00;--err-bg:#fdecec;--err-ink:#a12828;--track:#eef0f3}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#171b21;--ink:#e7eaee;--muted:#9aa4af;--line:#2a313a;--accent:#7d93ff;--accent-ink:#0f1216;--warn-bg:#2b2410;--warn-ink:#e9c96a;--err-bg:#331616;--err-ink:#ff9b9b;--track:#222830}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:22px;margin:0 0 2px} .sub{color:var(--muted);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+label{display:block;font-weight:600;font-size:14px;margin:14px 0 4px} label:first-child{margin-top:0}
+.hint{color:var(--muted);font-size:13px;font-weight:400}
+input[type=text],input[type=password],input[type=number]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.check{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px}
+.check input{margin-top:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{font:inherit;font-weight:600;border-radius:8px;padding:9px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;margin-top:14px}
+.msg{border-radius:8px;padding:10px 12px;margin-top:12px;font-size:14px}
+.msg.warn{background:var(--warn-bg);color:var(--warn-ink)} .msg.err{background:var(--err-bg);color:var(--err-ink)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .v{font-size:20px;font-weight:600} .stat .l{font-size:12px;color:var(--muted)}
+.who{display:flex;gap:12px;align-items:center}
+.who img{width:44px;height:44px;border-radius:50%}
+.track{background:var(--track);height:10px;border-radius:5px;overflow:hidden;margin:12px 0 6px}
+.bar{height:100%;background:var(--accent);width:0;transition:width .3s}
+.hidden{display:none}
+.safe{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
+@media (max-width:520px){.row2,.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SkillScanner</h1>
+  <p class="sub">Reports which languages a GitHub profile uses, for what purpose and in which sector.</p>
+
+  <div class="card" id="form">
+    <label for="login">GitHub username or profile URL</label>
+    <input type="text" id="login" placeholder="e.g. torvalds or https://github.com/torvalds" autocomplete="off">
+
+    <label for="token">GitHub token <span class="hint">(recommended: hourly quota 60 → 5000)</span></label>
+    <input type="password" id="token" autocomplete="off">
+    <div class="hint">A read-only <em>fine-grained</em> token is enough: GitHub → Settings → Developer settings → Fine-grained tokens → "Public repositories (read-only)".</div>
+
+    <label class="check"><input type="checkbox" id="ai"> <span>Add an AI interpretation with Claude <span class="hint">(optional, needs an Anthropic API key; only a digest of public repos is sent)</span></span></label>
+    <div id="aiBox" class="hidden">
+      <label for="key">Anthropic API key</label>
+      <input type="password" id="key" autocomplete="off">
+    </div>
+
+    <details>
+      <summary>Advanced</summary>
+      <div class="row2">
+        <div><label for="repos">Max repos</label><input type="number" id="repos" min="1" max="100"></div>
+        <div><label for="budget">Request budget (per scan)</label><input type="number" id="budget" min="20" max="1500"></div>
+      </div>
+      <div class="hint" style="margin-top:6px">At most 5 requests are spent per repo. <span id="reserve">20</span>% of the quota is always kept in reserve.</div>
+    </details>
+
+    <label class="check"><input type="checkbox" id="keep"> <span>Remember keys on this computer <span class="hint">(encrypted with Windows DPAPI, only this Windows user can read them)</span></span></label>
+    <label class="check hidden" id="clearBox"><input type="checkbox" id="clear"> <span>Delete saved keys</span></label>
+
+    <div class="actions">
+      <button class="primary" id="check">Precheck</button>
+    </div>
+    <div id="formMsg"></div>
+  </div>
+
+  <div class="card hidden" id="plan">
+    <div class="who"><img id="avatar" alt=""><div><strong id="name"></strong><div class="hint" id="who"></div></div></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="nRepos"></div><div class="l">repos to scan</div></div>
+      <div class="stat"><div class="v" id="nCost"></div><div class="l">max GitHub requests</div></div>
+      <div class="stat"><div class="v" id="nLeft"></div><div class="l">hourly quota left</div></div>
+    </div>
+    <div id="planMsg"></div>
+    <div class="actions">
+      <button class="primary" id="go">Start scan</button>
+      <button id="back">Back</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="run">
+    <strong id="runTitle">Scanning</strong>
+    <div class="track"><div class="bar" id="bar"></div></div>
+    <div class="hint" id="runMsg"></div>
+    <div class="hint" id="runQuota"></div>
+    <div id="runOut"></div>
+    <div class="actions">
+      <button id="cancel">Cancel</button>
+      <button class="primary hidden" id="openBtn">Open report</button>
+      <button class="hidden" id="folder">Show in folder</button>
+      <button class="hidden" id="again">New scan</button>
+    </div>
+  </div>
+
+  <ul class="safe">
+    <li>Only the official GitHub API is used; requests are sent one by one, slowly.</li>
+    <li>The cost is shown before every scan; the scan stops when the quota reaches the reserve.</li>
+    <li>Unchanged data comes from the cache (free when a token is used).</li>
+  </ul>
+</div>
+
+<script>
+const K = new URLSearchParams(location.search).get('k');
+const $ = id => document.getElementById(id);
+const show = (id, on = true) => $(id).classList.toggle('hidden', !on);
+
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {'X-Session': K, 'Content-Type': 'application/json'},
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const j = await r.json().catch(() => ({error: 'Invalid response'}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+function msg(el, text, cls) {
+  $(el).innerHTML = '';
+  if (!text) return;
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  d.textContent = text;
+  $(el).appendChild(d);
+}
+
+const hhmm = s => new Date(s).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+
+(async () => {
+  try {
+    const c = await api('/api/config');
+    $('repos').value = c.max_repos;
+    $('budget').value = c.request_budget;
+    $('reserve').textContent = c.reserve_percent;
+    if (c.has_github_token) $('token').placeholder = '•••••• (saved token will be used)';
+    if (c.has_anthropic) $('key').placeholder = '•••••• (saved key will be used)';
+    if (c.has_github_token || c.has_anthropic) { $('keep').checked = true; show('clearBox'); }
+  } catch (e) { msg('formMsg', e.message, 'err'); }
+})();
+
+$('ai').onchange = () => show('aiBox', $('ai').checked);
+$('login').addEventListener('keydown', e => { if (e.key === 'Enter') $('check').click(); });
+
+$('check').onclick = async () => {
+  msg('formMsg');
+  $('check').disabled = true;
+  $('check').textContent = 'Checking...';
+  try {
+    const res = await api('/api/precheck', {
+      login: $('login').value, github_token: $('token').value, anthropic_key: $('key').value,
+      remember: $('keep').checked, clear_secrets: $('clear').checked, use_llm: $('ai').checked,
+      max_repos: +$('repos').value, request_budget: +$('budget').value
+    });
+    $('token').value = '';
+    $('key').value = '';
+    const p = res.estimate;
+    $('avatar').src = p.avatar_url;
+    $('name').textContent = p.name || p.login;
+    $('who').textContent = '@' + p.login + ' · ' + p.public_repos + ' public repos' + (p.authenticated ? ' · with token' : ' · no token');
+    $('nRepos').textContent = p.selected;
+    $('nCost').textContent = '≤ ' + p.total_requests;
+    $('nLeft').textContent = p.remaining + ' / ' + p.rate_limit;
+    const notes = [];
+    if (p.message) notes.push(p.message);
+    if (res.llm_requested && !res.llm) notes.push('No Anthropic key was given, so the AI interpretation will be skipped.');
+    if (res.llm) notes.push('One request will be sent to Claude at the end (digest of public repos).');
+    notes.push('The quota resets at ' + hhmm(p.reset) + '; at least ' + p.reserve + ' requests stay in reserve after the scan.');
+    msg('planMsg', notes.join(' '), p.fits ? 'warn' : 'err');
+    $('go').disabled = !p.fits;
+    show('form', false);
+    show('plan');
+  } catch (e) { msg('formMsg', e.message, 'err'); }
+  finally { $('check').disabled = false; $('check').textContent = 'Precheck'; }
+};
+
+$('back').onclick = () => { show('plan', false); show('form'); };
+
+let timer = null;
+$('go').onclick = async () => {
+  $('go').disabled = true;
+  try {
+    await api('/api/start', {});
+    show('plan', false);
+    show('run');
+    ['openBtn', 'folder', 'again'].forEach(b => show(b, false));
+    show('cancel');
+    $('runTitle').textContent = 'Scanning';
+    msg('runOut');
+    timer = setInterval(poll, 700);
+    poll();
+  } catch (e) { msg('planMsg', e.message, 'err'); $('go').disabled = false; }
+};
+
+async function poll() {
+  let s;
+  try { s = await api('/api/status'); } catch (e) { return; }
+  const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+  $('bar').style.width = (s.phase === 'done' ? 100 : pct) + '%';
+  $('runMsg').textContent = s.message + (s.total ? `  (${s.done}/${s.total})` : '');
+  $('runQuota').textContent = `GitHub requests spent: ${s.used}` + (s.limit ? ` · quota left: ${s.remaining}/${s.limit}` : '');
+  if (s.running) return;
+  clearInterval(timer);
+  show('cancel', false);
+  show('again');
+  if (s.error) {
+    $('runTitle').textContent = 'Scan failed';
+    msg('runOut', s.error, 'err');
+    return;
+  }
+  $('runTitle').textContent = 'Report ready - opened in the browser';
+  show('openBtn');
+  show('folder');
+  const notes = (s.notes || []).join(' ');
+  if (notes) msg('runOut', notes, 'warn');
+}
+
+// Heartbeat so the app does not exit in browser mode.
+setInterval(() => api('/api/status').catch(() => {}), 20000);
+
+$('cancel').onclick = () => api('/api/cancel', {});
+$('openBtn').onclick = () => api('/api/open', {});
+$('folder').onclick = () => fetch('/api/open?folder=1', {method: 'POST', headers: {'X-Session': K}});
+$('again').onclick = () => { show('run', false); show('form'); };
+</script>
+</body>
+</html>

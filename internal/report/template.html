@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.User.Login}} · SkillScanner Report</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5d6670; --line:#e3e6ea;
+  --track:#eef0f3; --accent:#4f6bed; --warn-bg:#fff6e0; --warn-ink:#7a5a00;
+  --hi:#19a979; --mid:#c9a227; --lo:#9aa3ad;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1216; --card:#171b21; --ink:#e7eaee; --muted:#9aa4af; --line:#262c34;
+    --track:#222830; --accent:#7d93ff; --warn-bg:#2b2410; --warn-ink:#e9c96a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 16px 60px}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+h1{font-size:26px;margin:0} h2{font-size:18px;margin:0 0 14px}
+.muted{color:var(--muted)} .small{font-size:13px}
+header{display:flex;gap:18px;align-items:center;margin-bottom:22px}
+header img{width:76px;height:76px;border-radius:50%;border:1px solid var(--line);background:var(--card)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi .v{font-size:20px;font-weight:600;margin-top:2px;overflow-wrap:anywhere}
+.kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.note{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:12px 16px;margin-bottom:18px}
+.note ul{margin:4px 0 0;padding-left:18px}
+.grid2{display:grid;grid-template-columns:240px 1fr;gap:24px;align-items:center}
+@media (max-width:720px){.grid2{grid-template-columns:1fr}}
+.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 14px}
+.legend li{display:flex;gap:8px;align-items:center;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.row{display:grid;grid-template-columns:minmax(120px,210px) 1fr 56px;gap:12px;align-items:center;padding:7px 0}
+.track{background:var(--track);border-radius:6px;height:12px;overflow:hidden}
+.bar{height:100%;border-radius:6px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+details{border-top:1px solid var(--line)} details:first-of-type{border-top:0}
+summary{cursor:pointer;list-style:none} summary::-webkit-details-marker{display:none}
+.ev{margin:0 0 10px;padding-left:18px;font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);margin:1px 2px 1px 0;white-space:nowrap}
+.chip.hi{border-color:var(--hi);color:var(--hi)} .chip.mid{border-color:var(--mid);color:var(--mid)} .chip.lo{color:var(--muted)}
+.ai{border-left:4px solid var(--accent)}
+.langbar{display:flex;height:8px;border-radius:4px;overflow:hidden;min-width:90px;background:var(--track)}
+footer{color:var(--muted);font-size:13px;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  {{if .User.Avatar}}<img src="{{.User.Avatar}}" alt="">{{end}}
+  <div>
+    <h1>{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Login}}{{end}}</h1>
+    <div><a href="{{.User.URL}}">@{{.User.Login}}</a>{{if .User.Company}} · {{.User.Company}}{{end}}{{if .User.Place}} · {{.User.Place}}{{end}}</div>
+    {{if .User.Bio}}<div class="muted">{{.User.Bio}}</div>{{end}}
+    <div class="muted small">Generated: {{stamp .Date}}</div>
+  </div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Repos scanned</div><div class="v">{{.Stats.Analyzed}} <span class="muted small">/ {{.Stats.Public}} public</span></div></div>
+  <div class="kpi"><div class="l">Top language</div><div class="v">{{with code .Langs}}{{(index . 0).Name}}{{else}}-{{end}}</div></div>
+  <div class="kpi"><div class="l">Main purpose</div><div class="v">{{with .Purposes}}{{(index . 0).Name}}{{else}}-{{end}}</div></div>
+  <div class="kpi"><div class="l">Leading sector</div><div class="v">{{with .Sectors}}{{(index . 0).Name}}{{else}}Unclear{{end}}</div></div>
+  <div class="kpi"><div class="l">Code size</div><div class="v">{{size .Stats.Bytes}}</div></div>
+  <div class="kpi"><div class="l">GitHub API usage</div><div class="v">{{.Stats.Used}} requests</div><div class="muted small">{{.Stats.Hits}} from cache · quota left {{.Stats.Left}}/{{.Stats.Limit}}</div></div>
+</div>
+
+{{if .Notes}}<div class="note"><strong>Notes</strong><ul>{{range .Notes}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+
+{{with .AI}}
+<section class="card ai">
+  <h2>AI interpretation</h2>
+  <p style="margin-top:0">{{.Summary}}</p>
+  <div class="grid2" style="grid-template-columns:1fr 1fr;align-items:start">
+    <div>
+      <div class="muted small" style="margin-bottom:6px">PURPOSES</div>
+      {{range .Purposes}}<div style="margin-bottom:8px"><span class="chip {{level .Confidence}}">{{.Confidence}}</span> <strong>{{.Name}}</strong><div class="muted small">{{.Evidence}}</div></div>{{end}}
+    </div>
+    <div>
+      <div class="muted small" style="margin-bottom:6px">SECTORS</div>
+      {{range .Sectors}}<div style="margin-bottom:8px"><span class="chip {{level .Confidence}}">{{.Confidence}}</span> <strong>{{.Name}}</strong><div class="muted small">{{.Evidence}}</div></div>{{end}}
+    </div>
+  </div>
+  <div class="muted small">Model: {{.Model}} · {{.In}} input / {{.Out}} output tokens</div>
+</section>
+{{end}}
+
+<section class="card">
+  <h2>Languages</h2>
+  <div class="grid2">
+    <svg viewBox="0 0 100 100" width="220" height="220" role="img" aria-label="Language split">
+      <circle cx="50" cy="50" r="40" fill="none" stroke="var(--track)" stroke-width="16"/>
+      {{range donut .Langs}}<circle cx="50" cy="50" r="40" fill="none" stroke="{{css .Color}}" stroke-width="16" stroke-dasharray="{{.Dash}}" stroke-dashoffset="{{.Shift}}" transform="rotate(-90 50 50)"><title>{{.Name}} {{pct .Pct}}%</title></circle>{{end}}
+    </svg>
+    <ul class="legend">
+      {{range donut .Langs}}<li><span class="dot" style="background:{{css .Color}}"></span>{{.Name}} <span class="muted">{{pct .Pct}}%</span></li>{{end}}
+    </ul>
+  </div>
+  <div class="tw" style="margin-top:18px">
+  <table>
+    <thead><tr><th>Language</th><th style="width:40%">Weighted use</th><th class="num">Weighted</th><th class="num">Code size</th><th class="num">Repos</th></tr></thead>
+    <tbody>
+    {{$m := topWeight .Langs}}
+    {{range .Langs}}
+      <tr>
+        <td><span class="dot" style="display:inline-block;background:{{css .Color}}"></span> {{.Name}}{{if .Markup}} <span class="muted small">(markup/build)</span>{{end}}</td>
+        <td><div class="track"><div class="bar" style="width:{{width .Weight $m}}%;background:{{css .Color}}"></div></div></td>
+        <td class="num">{{if .Markup}}-{{else}}{{pct .Weight}}%{{end}}</td>
+        <td class="num">{{size .Bytes}}</td>
+        <td class="num">{{.Repos}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">"Weighted use": each repo votes with its own language split, weighted by recency and popularity, so one huge repo cannot dominate. Markup languages such as HTML/CSS are left out of this share.</p>
+</section>
+
+<section class="card">
+  <h2>Purpose</h2>
+  {{if .Purposes}}{{$m := topPct .Purposes}}
+  {{range $i, $s := .Purposes}}
+  <details>
+    <summary class="row"><span>{{$s.Name}}</span><div class="track"><div class="bar" style="width:{{width $s.Pct $m}}%;background:{{color $i}}"></div></div><span class="num">{{pct0 $s.Pct}}%</span></summary>
+    <ul class="ev">{{range $s.Evidence}}<li>{{.}}</li>{{end}}</ul>
+  </details>
+  {{end}}
+  <p class="muted small">Click a row to see the evidence behind it.</p>
+  {{else}}<p class="muted">No clear purpose signal was found.</p>{{end}}
+</section>
+
+<section class="card">
+  <h2>Sector</h2>
+  {{if .Sectors}}{{$m := topPct .Sectors}}
+  {{range $i, $s := .Sectors}}
+  <details>
+    <summary class="row"><span>{{$s.Name}}</span><div class="track"><div class="bar" style="width:{{width $s.Pct $m}}%;background:{{color $i}}"></div></div><span class="num">{{pct0 $s.Pct}}%</span></summary>
+    <ul class="ev">{{range $s.Evidence}}<li>{{.}}</li>{{end}}</ul>
+  </details>
+  {{end}}
+  <p class="muted small">Sectors are guessed from words in descriptions, topics and READMEs; treat them as hints, not facts.</p>
+  {{else}}<p class="muted">No clear sector signal was found (mostly general-purpose or personal projects).</p>{{end}}
+</section>
+
+<section class="card">
+  <h2>Repos</h2>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Repo</th><th>Languages</th><th>Purpose</th><th>Sector</th><th class="num">★</th><th>Last push</th></tr></thead>
+    <tbody>
+    {{range .Repos}}
+      <tr>
+        <td><a href="{{.URL}}">{{.Name}}</a>{{if .Archived}} <span class="chip lo">archived</span>{{end}}{{if .Partial}} <span class="chip lo">partial</span>{{end}}{{if .Desc}}<div class="muted small">{{.Desc}}</div>{{end}}</td>
+        <td><div class="langbar">{{range .Langs}}<span style="width:{{pct .Pct}}%;background:{{css .Color}}" title="{{.Name}} {{pct .Pct}}%"></span>{{end}}</div><div class="muted small">{{range $i, $l := first 3 .Langs}}{{if $i}}, {{end}}{{$l.Name}}{{end}}</div></td>
+        <td>{{range .Purposes}}<span class="chip">{{.Name}}</span>{{else}}<span class="muted">-</span>{{end}}</td>
+        <td>{{range .Sectors}}<span class="chip">{{.Name}}</span>{{else}}<span class="muted">-</span>{{end}}</td>
+        <td class="num">{{.Stars}}</td>
+        <td class="small">{{date .Pushed}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{with .AI}}{{if .Repos}}
+  <details style="margin-top:12px"><summary class="muted small" style="padding:6px 0">AI notes per repo ▸</summary>
+    <table><tbody>{{range .Repos}}<tr><td>{{.Repo}}</td><td>{{.Purpose}}</td><td>{{.Sector}}</td></tr>{{end}}</tbody></table>
+  </details>
+  {{end}}{{end}}
+</section>
+
+<section class="card">
+  <h2>Method</h2>
+  <ul class="small muted" style="margin:0;padding-left:18px">
+    <li>Only public, non-fork repos owned by the user are scanned; data comes from the official GitHub REST API.</li>
+    <li>Languages come from GitHub byte counts; purpose from manifest files, file layout, languages and keywords; sector from words in descriptions, topics and READMEs.</li>
+    <li>Repos pushed in the last 12 months count fully, 1-3 years at 0.6, older ones at 0.3.</li>
+    <li>Private and organization repos are not included, so results may not reflect the person's full skill set.</li>
+  </ul>
+</section>
+
+<footer>Made with SkillScanner · Raw data is in the .json file in the same folder.</footer>
+</div>
+</body>
+</html>

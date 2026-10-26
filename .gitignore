@@ -1,0 +1,7 @@
+# Build output and runtime data
+/dist/
+*.exe
+skillscanner.config.json
+cache/
+reports/
+data/
