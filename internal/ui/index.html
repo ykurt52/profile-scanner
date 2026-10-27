@@ -165,7 +165,8 @@ $('check').onclick = async () => {
     $('token').value = '';
     $('key').value = '';
     const p = res.estimate;
-    $('avatar').src = p.avatar_url;
+    $('avatar').src = p.avatar_url || '';
+    $('avatar').hidden = !p.avatar_url;
     $('name').textContent = p.name || p.login;
     $('who').textContent = '@' + p.login + ' · ' + p.public_repos + ' public repos' + (p.authenticated ? ' · with token' : ' · no token');
     $('nRepos').textContent = p.selected;

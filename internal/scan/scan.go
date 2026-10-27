@@ -193,7 +193,7 @@ func Run(ctx context.Context, c *github.Client, p *Plan, progress Progress) (*an
 	rate := c.Rate()
 	prof.Stats.Left, prof.Stats.Limit = rate.Left, rate.Limit
 	if forks > 0 {
-		notes = append(notes, fmt.Sprintf("%d forked repos were skipped (someone else's code).", forks))
+		notes = append(notes, fmt.Sprintf("Skipped %d fork(s) (someone else's code).", forks))
 	}
 	prof.Notes = append(prof.Notes, notes...)
 	if len(data) == 0 {
